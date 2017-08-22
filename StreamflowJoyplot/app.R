@@ -15,7 +15,8 @@ library(tools)
 ui <- fluidPage(theme=shinytheme("sandstone"),
    
    titlePanel("Streamflow Comparison Tool"),
-   helpText("Lauren Steely | @MadreDeZanjas"),
+   helpText("Lauren Steely | @MadreDeZanjas | ",
+            a("Code available on Github", href="https://github.com/codeswitching/Streamflow-Joyplot-Tool")),
    textInput("sitesInput", "Enter a USGS gauging station site ID:",
              value = "09380000", width = 300, placeholder = NULL),
    helpText("Examples | Rio Grande: 08319000 | Colorado R: 09380000 | Columbia R: 14105700 | Sacramento R: 11425500 | Klamath R: 11530500"),
