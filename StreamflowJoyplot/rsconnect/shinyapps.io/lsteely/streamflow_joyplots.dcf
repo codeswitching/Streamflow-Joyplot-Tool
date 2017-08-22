@@ -1,0 +1,10 @@
+name: streamflow_joyplots
+title: Streamflow Joyplots
+account: lsteely
+server: shinyapps.io
+appId: 206042
+bundleId: 950221
+url: https://lsteely.shinyapps.io/streamflow_joyplots/
+when: 1503436550.14843
+asMultiple: FALSE
+asStatic: FALSE
