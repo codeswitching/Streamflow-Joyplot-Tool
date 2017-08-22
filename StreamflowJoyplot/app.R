@@ -60,7 +60,7 @@ server <- function(input, output) {
        server <- "http://hydroportal.cuahsi.org/nwisdv/cuahsi_1_1.asmx?WSDL"
        sitelocation <- GetSiteInfo(server, paste0("NWISDV:", selectedSite))
        variable <- "00060" # Discharge in cfs
-       COdischarge_raw <- readNWISdv(selectedSite, variable, "1901-01-01", today())
+       COdischarge_raw <- readNWISdv(selectedSite, variable, "1901-01-01", today()) # download discharge data from USGS
        setProgress(message="Plotting...", value=0.6)
        COdischarge_raw %>%
          rename(cfs = X_00060_00003, date = Date) %>%
@@ -72,15 +72,20 @@ server <- function(input, output) {
      
      output$distPlot <- renderPlot({
        
+       # Change the palette based on selecte year type
        if (input$radioInput == "byyear") { myPalette <- colorRampPalette(rev(brewer.pal(numyears, "Spectral"))) }
        else { myPalette <- colorRampPalette(brewer.pal(numyears, "RdYlBu")) }
        
+       # Make a new yearvar column and fill with either calendar or water years
        COdischarge$yearvar <- switch(input$radioInput2, calendar = COdischarge$year, water = COdischarge$wyear)
        ylabel <- switch(input$radioInput2, calendar = "Year", water = "Water Year")
        xlabel <- switch(input$radioInput2, calendar = "Day of year", water = "Day of water year")
        
+       # Recalculate annual flow and julian days based on selected year type
        COdischarge %>% group_by(yearvar) %>%
          mutate(total = sum(cfs), julian = row_number()) -> COdischarge
+       
+       # fillvar will control the color of each ridge. 
        COdischarge$fillvar <- switch(input$radioInput, byyear = COdischarge$yearvar, bydischarge = COdischarge$total)
        
        ggplot(COdischarge, aes(julian, -yearvar, height = cfs, fill=fillvar, group=yearvar)) +
