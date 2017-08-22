@@ -15,26 +15,33 @@ library(tools)
 ui <- fluidPage(theme=shinytheme("sandstone"),
    
    titlePanel("JoyFlow"),
-   helpText("Lauren Steely | @MadreDeZanjas | ",
+   helpText("Lauren Steely, ", a("@MadreDeZanjas", href="https://twitter.com/MadreDeZanjas"), " | ",
             a("Code available on Github", href="https://github.com/codeswitching/Streamflow-Joyplot-Tool")),
-   textInput("sitesInput", "Enter a USGS gauging station site ID:",
-             value = "09380000", width = 300, placeholder = NULL),
+   fluidRow(
+     column(width=4,
+       textInput("sitesInput", "Enter a USGS gauging station site ID:",
+                 value = "09380000", width = 300, placeholder = NULL)
+     ),
+     column(width=2,
+       actionButton("button", "Make joyful")
+     )
+   ),
+   tags$style(type='text/css', "#button { width:100%; margin-top: 25px;}"),
    helpText("Examples | Rio Grande: 08319000 | Colorado R: 09380000 | Columbia R: 14105700 | Sacramento R: 11425500 | Klamath R: 11530500"),
-   helpText(a("Find gauging stations", href="https://maps.waterdata.usgs.gov/mapper/index.html"), " via NWIS"),
-   actionButton("button", "Make joyful"),
-   
+   helpText(a("Find gauging stations", href="https://maps.waterdata.usgs.gov/mapper/index.html"), " on a map"),
+
    hr(),
    
    fluidRow(
     column(width=4,
-     sliderInput("scaleInput", "Add joy:", 0, 11, 3, 1)
+     sliderInput("scaleInput", "Add joy:", 0, 11, 4, 1)
     ),
     column(width=3,
      radioButtons("radioInput", "Fill color:", choices =
                     c("by year (pretty)" = "byyear", "by total annual discharge (shows dry vs wet years)" = "bydischarge"))
     ),
     column(width=3,
-     radioButtons("radioInput2", "x axis", choices =
+     radioButtons("radioInput2", "x axis:", choices =
                 c("calendar year" = "calendar", "water year" = "water"))
     )
    ),
