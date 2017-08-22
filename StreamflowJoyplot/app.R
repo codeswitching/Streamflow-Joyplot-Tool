@@ -14,7 +14,7 @@ library(tools)
 # Define UI for application
 ui <- fluidPage(theme=shinytheme("sandstone"),
    
-   titlePanel("Streamflow Comparison Tool"),
+   titlePanel("JoyFlow"),
    helpText("Lauren Steely | @MadreDeZanjas | ",
             a("Code available on Github", href="https://github.com/codeswitching/Streamflow-Joyplot-Tool")),
    textInput("sitesInput", "Enter a USGS gauging station site ID:",
@@ -29,9 +29,13 @@ ui <- fluidPage(theme=shinytheme("sandstone"),
     column(width=4,
      sliderInput("scaleInput", "Add joy:", 0, 11, 3, 1)
     ),
-    column(width=6,
+    column(width=3,
      radioButtons("radioInput", "Fill color:", choices =
                     c("by year (pretty)" = "byyear", "by total annual discharge (shows dry vs wet years)" = "bydischarge"))
+    ),
+    column(width=3,
+     radioButtons("radioInput2", "x axis", choices =
+                c("calendar year" = "calendar", "water year" = "water"))
     )
    ),
 
@@ -49,27 +53,38 @@ server <- function(input, output) {
    
   observeEvent(input$button, {
      withProgress(message = "Downloading data from NWIS...", value=0.2, {
-     selectedSite <- input$sitesInput
-     server <- "http://hydroportal.cuahsi.org/nwisdv/cuahsi_1_1.asmx?WSDL"
-     sitelocation <- GetSiteInfo(server, paste0("NWISDV:", selectedSite))
-     variable <- "00060" # Discharge in cfs09380000
-     COdischarge_raw <- readNWISdv(selectedSite, variable, "1901-01-01", today())
-     setProgress(message="Plotting...", value=0.6)
-     COdischarge_raw %>%
-       rename(cfs = X_00060_00003, date = Date) %>%
-       mutate(year = year(date), julian = yday(date)) %>%
-       filter(cfs >= 0) %>%
-       group_by(year) %>%
-       mutate(total = sum(cfs)) -> COdischarge
-     numyears = max(COdischarge$year) - min(COdischarge$year)
+       water_year <- function(date) {
+         ifelse(month(date) < 10, year(date)-1, year(date))
+       }
+       selectedSite <- input$sitesInput
+       server <- "http://hydroportal.cuahsi.org/nwisdv/cuahsi_1_1.asmx?WSDL"
+       sitelocation <- GetSiteInfo(server, paste0("NWISDV:", selectedSite))
+       variable <- "00060" # Discharge in cfs
+       COdischarge_raw <- readNWISdv(selectedSite, variable, "1901-01-01", today())
+       setProgress(message="Plotting...", value=0.6)
+       COdischarge_raw %>%
+         rename(cfs = X_00060_00003, date = Date) %>%
+         mutate(year = year(date), wyear = water_year(date)) %>%
+         filter(cfs >= 0) %>%
+         group_by(year) %>%
+         mutate(total = sum(cfs)) -> COdischarge
+       numyears = max(COdischarge$year) - min(COdischarge$year)
      
      output$distPlot <- renderPlot({
+       
        if (input$radioInput == "byyear") { myPalette <- colorRampPalette(rev(brewer.pal(numyears, "Spectral"))) }
        else { myPalette <- colorRampPalette(brewer.pal(numyears, "RdYlBu")) }
        
-       COdischarge$fillvar <- switch(input$radioInput, byyear = COdischarge$year, bydischarge = COdischarge$total)
-       ggplot(COdischarge, aes(julian, -year, height = cfs, fill=fillvar, group=year)) +
-         geom_joy(stat="identity", scale = input$scaleInput * 1.2, size = 0.6) +
+       COdischarge$yearvar <- switch(input$radioInput2, calendar = COdischarge$year, water = COdischarge$wyear)
+       ylabel <- switch(input$radioInput2, calendar = "Year", water = "Water Year")
+       xlabel <- switch(input$radioInput2, calendar = "Day of year", water = "Day of water year")
+       
+       COdischarge %>% group_by(yearvar) %>%
+         mutate(total = sum(cfs), julian = row_number()) -> COdischarge
+       COdischarge$fillvar <- switch(input$radioInput, byyear = COdischarge$yearvar, bydischarge = COdischarge$total)
+       
+       ggplot(COdischarge, aes(julian, -yearvar, height = cfs, fill=fillvar, group=yearvar)) +
+         geom_joy(stat="identity", scale = input$scaleInput * 1.2, size = 0.5) +
          theme_joy() +
          theme(text=element_text(family="Arial Narrow", size=20),
                axis.text=element_text(family="Arial Narrow", size=18),
@@ -77,7 +92,7 @@ server <- function(input, output) {
                plot.caption=element_text(color="#999999", size=12),
                legend.position = "none") +
          scale_fill_gradientn(colors=myPalette(numyears)) +
-         labs(x = "Day of year", y = "Year",
+         labs(x = xlabel, y = ylabel,
               title = paste("Annual discharge at", toTitleCase(tolower(sitelocation$SiteName))),
               subtitle = "data from USGS NWIS")
      })
