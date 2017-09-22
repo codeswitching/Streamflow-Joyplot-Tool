@@ -1,7 +1,7 @@
 # Lauren Steely, August 2017
 
 library(shiny)
-library(tidyverse)
+library(dplyr)
 library(dataRetrieval)
 library(lubridate)
 library(ggjoy)
@@ -19,8 +19,9 @@ ui <- fluidPage(theme=shinytheme("sandstone"),
             a("Code available on Github", href="https://github.com/codeswitching/Streamflow-Joyplot-Tool")),
    fluidRow(
      column(width=4,
-       textInput("sitesInput", "Enter a USGS gauging station site ID:",
-                 value = "09380000", width = 300, placeholder = NULL)
+            selectizeInput("sitesInput", "Enter a USGS gauging station site ID:",
+                        c("Colorado R" = "09380000", "Rio Grande" = "08319000", "Columbia R" = "14105700",
+                          "Sacramento R" = "11425500"), options = list(create = TRUE))
      ),
      column(width=2,
        actionButton("button", "Make joyful")
