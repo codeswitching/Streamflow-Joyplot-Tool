@@ -3,15 +3,16 @@ library(WaterML)
 library(dataRetrieval)
 library(lubridate)
 library(httr)
-library(ggjoy)
+library(ggridges)
 library(hrbrthemes)
 library(extrafont)
 library(RColorBrewer)
 library(leaflet)
-library(httr)  # set_config()
 
 set_config(config(ssl_verifypeer = 0L)) # must turn off SSL certificate verification, otherwise readNWISdv returns a server error
-loadfonts(device="win") # get the fonts to work right
+font_import() # import additional system fonts (not working)
+
+source('../personal libraries/turbo palette.R')
 
 # WaterML method
 server <- "http://hydroportal.cuahsi.org/nwisdv/cuahsi_1_1.asmx?WSDL"
@@ -23,22 +24,45 @@ discharge <- GetValues(server, siteCode="NWISDV:0938000", variableCode="NWISDV:0
 
 # dataRetrieval method
 site <- "09380000" # Lee's Ferry
+site <- "09421500" # Below Hoover
 variable <- "00060" # daily discharge
 discharge <- readNWISdv(site, variable, "1910-01-01", today())
 discharge %>% select(-agency_cd, -X_00060_00003_cd) %>%
   rename(cfs = X_00060_00003, date = Date) %>%
-  mutate(year = as.factor(-year(date)), julian = yday(date)) -> discharge
+  mutate(year = year(date), julian = yday(date), month = julian/31+1) -> discharge
 
 # Plot a single station for all years
-sc <- (max(discharge$cfs) / min(discharge$cfs) * 0.035) # intelligent scaling of mountain height
-ggplot(discharge, aes(julian, year, height = cfs, group = year, fill = year)) +
-  geom_joy(stat="identity", scale = sc, size=0.4) +
-  xlab("Day of Year") +
-  theme(legend.position = "none") +
-  ggtitle("Colorado River flow at Lee's Ferry") +
-  theme(axis.text=element_text(size=8)) +
-  theme(panel.background = element_blank())
-ggsave("LeesFerry.png", width=6, height=8)
+sc <- (max(discharge$cfs) / min(discharge$cfs) * 0.000035) # intelligent scaling of mountain height
+ggplot(discharge, aes(month, year, height = cfs, group = year, fill = year)) +
+  geom_ridgeline(scale = 0.00007, size=0.33) +
+  scale_fill_gradientn(colors = turbo(), trans='reverse') +
+#  scale_fill_viridis_c(trans='reverse') +
+  scale_x_continuous(breaks = seq(1, 12, by=1), expand=c(0.01,0)) +
+  scale_y_reverse(breaks = seq(1920, 2025, by=10), expand=c(0,0.7)) +
+  labs(title = "100 years of Colorado River flow at Lee's Ferry",
+       x = 'Month', y = '') +
+  theme(text = element_text(family='sans'),
+        axis.text=element_text(size=10),
+        axis.title=element_text(size=10),
+        legend.position = 'none',
+        panel.background = element_blank())
+
+# Plot a version with fill color varying by flow instead of year
+ggplot(discharge, aes(month, year, height = cfs, group = year, fill = cfs)) +
+  geom_ridgeline_gradient(scale = 0.00007, size=0.33, color='black') +
+  scale_fill_gradientn(colors=turbo()) +
+#  scale_fill_viridis_c() +
+  scale_x_continuous(breaks = seq(1, 12, by=1), expand=c(0.01,0)) +
+  scale_y_reverse(breaks = seq(1920, 2025, by=10), expand=c(0,0.7)) +
+  labs(title = "100 years of Colorado River flow at Lee's Ferry",
+       x = 'Month', y = '') +
+  theme(text = element_text(family='sans'),
+        axis.text=element_text(size=10),
+        axis.title=element_text(size=10),
+        legend.position = 'none',
+        panel.background = element_blank())
+
+ggsave("LeesFerry variegated.png", width=6, height=8)
 
 ### Plot multiple stations moving downriver
 

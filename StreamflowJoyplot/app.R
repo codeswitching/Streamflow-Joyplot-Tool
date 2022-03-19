@@ -1,18 +1,18 @@
 # Lauren Steely, August 2017
+# Updated March 2022
 
+library(tidyverse)
 library(shiny)
-library(dplyr)
 library(dataRetrieval)
 library(lubridate)
-library(ggjoy)
+library(ggridges)
 library(RColorBrewer)
 library(leaflet)
 library(shinythemes)
-library(WaterML)
 library(tools)
 
 # Define UI for application
-ui <- fluidPage(theme=shinytheme("sandstone"),
+ui <- fluidPage(
    
    titlePanel("JoyFlow"),
    helpText("Lauren Steely, ", a("@MadreDeZanjas", href="https://twitter.com/MadreDeZanjas"), " | ",
@@ -24,7 +24,7 @@ ui <- fluidPage(theme=shinytheme("sandstone"),
                           "Sacramento R" = "11425500"), options = list(create = TRUE))
      ),
      column(width=2,
-       actionButton("button", "Make joyful")
+       actionButton("button", "Make the plot")
      )
    ),
    tags$style(type='text/css', "#button { width:100%; margin-top: 25px;}"),
@@ -35,7 +35,7 @@ ui <- fluidPage(theme=shinytheme("sandstone"),
    
    fluidRow(
     column(width=4,
-     sliderInput("scaleInput", "Add joy:", 0, 11, 4, 1)
+     sliderInput("scaleInput", "Add joy:", 1, 11, 4, 1)
     ),
     column(width=3,
      radioButtons("radioInput", "Fill color:", choices =
@@ -56,7 +56,7 @@ ui <- fluidPage(theme=shinytheme("sandstone"),
    hr()
   )
 
-# Define server logic required to draw a histogram
+# Define server logic 
 server <- function(input, output) {
    
   observeEvent(input$button, {
@@ -66,7 +66,6 @@ server <- function(input, output) {
        }
        selectedSite <- input$sitesInput
        server <- "http://hydroportal.cuahsi.org/nwisdv/cuahsi_1_1.asmx?WSDL"
-       sitelocation <- GetSiteInfo(server, paste0("NWISDV:", selectedSite))
        variable <- "00060" # Discharge in cfs
        COdischarge_raw <- readNWISdv(selectedSite, variable, "1901-01-01", today()) # download discharge data from USGS
        setProgress(message="Plotting...", value=0.6)
@@ -87,35 +86,37 @@ server <- function(input, output) {
        # Make a new yearvar column and fill with either calendar or water years
        COdischarge$yearvar <- switch(input$radioInput2, calendar = COdischarge$year, water = COdischarge$wyear)
        ylabel <- switch(input$radioInput2, calendar = "Year", water = "Water Year")
-       xlabel <- switch(input$radioInput2, calendar = "Day of year", water = "Day of water year")
+       xlabel <- switch(input$radioInput2, calendar = "Month", water = "Month of water year")
        
        # Recalculate annual flow and julian days based on selected year type
        COdischarge %>% group_by(yearvar) %>%
-         mutate(total = sum(cfs), julian = row_number()) -> COdischarge
+         mutate(total = sum(cfs), julian = row_number(), month = julian/31+1) -> COdischarge
        
        # fillvar will control the color of each ridge. 
        COdischarge$fillvar <- switch(input$radioInput, byyear = COdischarge$yearvar, bydischarge = COdischarge$total)
        
-       ggplot(COdischarge, aes(julian, -yearvar, height = cfs, fill=fillvar, group=yearvar)) +
-         geom_joy(stat="identity", scale = input$scaleInput * 1.2, size = 0.5) +
-         theme_joy() +
-         theme(text=element_text(family="Arial Narrow", size=20),
-               axis.text=element_text(family="Arial Narrow", size=18),
-               plot.title=element_text(family="Arial Narrow", size=21),
-               plot.caption=element_text(color="#999999", size=12),
-               legend.position = "none") +
-         scale_fill_gradientn(colors=myPalette(numyears)) +
+       ggplot(COdischarge, aes(month, yearvar, height = cfs, fill=fillvar, group=yearvar)) +
+         geom_ridgeline(stat="identity", scale = (input$scaleInput+2)/100000, size = 0.5) +
+         theme(axis.text = element_text(family="Arial Narrow", size=18),
+               axis.title = element_text(family="Arial Narrow", size=17),
+               plot.title = element_text(family="Arial Narrow", size=21),
+               plot.caption = element_text(color="#999999", size=12),
+               legend.position = "none",
+               panel.background = element_blank()) +
+         scale_x_continuous(breaks = seq(1, 12, by=1), expand=c(0.01,0)) +
+         scale_y_reverse() +
+         scale_fill_gradientn(colors = myPalette(numyears)) +
          labs(x = xlabel, y = ylabel,
-              title = paste("Annual discharge at", toTitleCase(tolower(sitelocation$SiteName))),
+              title = "Annual discharge",
               subtitle = "data from USGS NWIS")
      })
      
      output$map <- renderLeaflet({
-       leaflet() %>%
-         addProviderTiles(providers$Esri.NatGeoWorldMap) %>%
-         addMarkers(lat=sitelocation$Latitude, lng=sitelocation$Longitude,
-                    label=paste(sitelocation$SiteCode, "-", sitelocation$SiteName)) %>%
-         setView(lng = mean(sitelocation$Longitude), lat = mean(sitelocation$Latitude), zoom = 10)
+       #leaflet() %>%
+      #   addProviderTiles(providers$Esri.NatGeoWorldMap) %>%
+      #   addMarkers(lat=sitelocation$Latitude, lng=sitelocation$Longitude,
+      #              label=paste(sitelocation$SiteCode, "-", sitelocation$SiteName)) %>%
+      #   setView(lng = mean(sitelocation$Longitude), lat = mean(sitelocation$Latitude), zoom = 10)
      })
      
      setProgress(message="All done.", value=1)
