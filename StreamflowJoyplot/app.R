@@ -18,17 +18,15 @@ ui <- fluidPage(
    helpText("Lauren Steely, ", a("@MadreDeZanjas", href="https://twitter.com/MadreDeZanjas"), " | ",
             a("Code available on Github", href="https://github.com/codeswitching/Streamflow-Joyplot-Tool")),
    fluidRow(
-     column(width=4,
-            selectizeInput("sitesInput", "Enter a USGS gauging station site ID:",
-                        c("Colorado R" = "09380000", "Rio Grande" = "08319000", "Columbia R" = "14105700",
-                          "Sacramento R" = "11425500"), options = list(create = TRUE))
+     column(width=5,
+            textInput("sitesInput", "Enter an 8-digit USGS gauging station ID:", "09152500")
      ),
      column(width=2,
        actionButton("button", "Make the plot")
      )
    ),
    tags$style(type='text/css', "#button { width:100%; margin-top: 25px;}"),
-   helpText("Examples | Rio Grande: 08319000 | Colorado R: 09380000 | Columbia R: 14105700 | Sacramento R: 11425500 | Klamath R: 11530500"),
+   helpText("Examples | Gunnison R: 09152500 | San Juan R: 09379500 | Rio Grande: 08319000 | Colorado R: 09380000 | Columbia R: 14105700 | Sacramento R: 11425500 | Klamath R: 11530500"),
    helpText(a("Find gauging stations", href="https://maps.waterdata.usgs.gov/mapper/index.html"), " on a map"),
 
    hr(),
@@ -43,7 +41,7 @@ ui <- fluidPage(
     ),
     column(width=3,
      radioButtons("radioInput2", "x axis:", choices =
-                c("calendar year" = "calendar", "water year" = "water"))
+                c("calendar year (jan-dec)" = "calendar", "water year (oct-sep)" = "water"))
     )
    ),
 
@@ -94,9 +92,10 @@ server <- function(input, output) {
        
        # fillvar will control the color of each ridge. 
        COdischarge$fillvar <- switch(input$radioInput, byyear = COdischarge$yearvar, bydischarge = COdischarge$total)
+       sc <- (max(COdischarge$cfs) / (min(COdischarge$cfs)+1) / 10000000)
        
        ggplot(COdischarge, aes(month, yearvar, height = cfs, fill=fillvar, group=yearvar)) +
-         geom_ridgeline(stat="identity", scale = (input$scaleInput+2)/100000, size = 0.5) +
+         geom_ridgeline(stat="identity", scale = (input$scaleInput+2) * sc, size = 0.5) +
          theme(axis.text = element_text(family="Arial Narrow", size=18),
                axis.title = element_text(family="Arial Narrow", size=17),
                plot.title = element_text(family="Arial Narrow", size=21),
@@ -107,8 +106,8 @@ server <- function(input, output) {
          scale_y_reverse() +
          scale_fill_gradientn(colors = myPalette(numyears)) +
          labs(x = xlabel, y = ylabel,
-              title = "Annual discharge",
-              subtitle = "data from USGS NWIS")
+              title = paste0("Annual discharge at NWIS site ", selectedSite),
+              caption = "data from USGS NWIS")
      })
      
      output$map <- renderLeaflet({
