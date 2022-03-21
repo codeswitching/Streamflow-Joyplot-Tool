@@ -11,6 +11,7 @@ library(ggridges)      # create ridgeline plots in ggplot
 library(RColorBrewer)
 library(rayshader)     # create 3d plots in ggplot
 library(magick)        # nice shadows on 3d plots
+library(ggfx)
 
 set_config(config(ssl_verifypeer = 0L)) # turn off SSL certificate verification, otherwise readNWISdv may return server error
 
@@ -26,6 +27,7 @@ site <- "09379500" # San Juan near Bluff UT
 site <- "09180500" # Colorado R near Cisco UT
 site <- "09315000" # Green River at Green River UT
 site <- "09152500" # Gunnison at Grand Junction
+site <- "08279500" # Rio Grande at Embudo NM
 
 variable <- "00060" # daily discharge
 
@@ -38,11 +40,12 @@ discharge <- discharge %>%
 
 ### Plot data
 
-# Plot a single station for all years
+# Plot a single station for all years, with fill color varying by year (pretty but uninformative)
+
 ggplot(discharge, aes(month, year, height = cfs, group = year, fill = year)) +
   geom_ridgeline(scale = 0.00007, size=0.33) +   # adjust <scale> to change scaling and spacing of years
-  scale_fill_gradientn(colors = turbo(), trans='reverse') +   # add rainbow gradient
-# scale_fill_viridis_c(trans='reverse') +                    # can also use viridis gradient
+  scale_fill_gradientn(colors = turbo(), trans='reverse') +   # add rainbow gradient using custom turbo() function
+# scale_fill_viridis_c(trans='reverse') +                     # can also use viridis gradient
   scale_x_continuous(breaks = seq(1, 12, by=1), expand=c(0.01,0)) +    # scale x axis
   scale_y_reverse(breaks = seq(1920, 2025, by=10), expand=c(0,0.7)) +  # scale y axis
   labs(title = "100 years of Colorado River flow at Lee's Ferry",
@@ -54,31 +57,44 @@ ggplot(discharge, aes(month, year, height = cfs, group = year, fill = year)) +
         legend.position = 'none',
         panel.background = element_blank())
 
-# Plot a version with fill color varying by flow instead of year
+# Plot a version with fill color varying by flow (more informative)
+
 ggplot(discharge, aes(month, year, height = cfs, group = year, fill = cfs)) +   # fill = cfs for this version
-  geom_ridgeline_gradient(scale = 0.00007, size=0.33, color='black') +
+  with_shadow(geom_ridgeline_gradient(scale = 0.00006, size=0.33, color='black'), x_offset=2, y_offset=2, sigma=3) +
   scale_fill_gradientn(colors=turbo()) +
 # scale_fill_viridis_c() +
   scale_x_continuous(breaks = seq(1, 12, by=1), expand=c(0.01,0)) +
-  scale_y_reverse(breaks = seq(1920, 2025, by=10), expand=c(0,0.7)) +
+  scale_y_reverse(breaks = seq(1890, 2025, by=10), expand=c(0,0.7)) +
   labs(title = "100 years of Colorado River flow at Lee's Ferry",
-       x = 'Month', y = '') +
+       x = 'Month', y = '',
+       caption = 'Source: USGS/NWIS') +
   theme(text = element_text(family='sans'),
         axis.text=element_text(size=10),
         axis.title=element_text(size=10),
         legend.position = 'none',
         panel.background = element_blank())
 
-ggsave("LeesFerry variegated.png", width=6, height=8)   # save the plot
+ggsave("plots/LeesFerry variegated shadow.png", width=6, height=8)   # save the plot
 
 ### 3D Heatmap
+
+#temp <- discharge[1,]
+#for (i in 1:nrow(discharge)) {
+#  if (discharge[i,]$julian < 365) {
+#    newrow <- discharge[i,]
+#    newrow$month <- (discharge[i,]$month + discharge[i+1,]$month)/2
+#    newrow$cfs   <- (discharge[i,]$cfs + discharge[i+1,]$cfs)/2
+#    temp <- rbind(temp, newrow)
+#  }
+#  temp <- rbind(temp, discharge[i+1,])
+#}
 
 myplot <- ggplot(discharge, aes(month, year, fill = cfs)) +
   geom_tile() +   # create a heatmap of the data
   scale_x_continuous(breaks = seq(1, 12, by=1), expand=c(0.01,0)) +
-  scale_y_reverse(breaks = seq(1910, 2025, by=10), expand=c(0,0.7)) +
+  scale_y_reverse(breaks = seq(1890, 2025, by=10), expand=c(0,0.7)) +
   scale_fill_gradientn(colors=turbo()) +
-  labs(title = "Green River at Green River UT",
+  labs(title = "Colorado River at Lees Ferry",
        caption = 'USGS / NWIS',
        x = 'Month', y = '') +
   theme(text = element_text(family='sans'),
@@ -88,17 +104,18 @@ myplot <- ggplot(discharge, aes(month, year, fill = cfs)) +
         panel.background = element_blank())
 
 plot_gg(myplot,             # ggplot to 3d-ize using rayshader library
-        raytrace = T,       # use raytracing to create shadows
+        raytrace = F,       # use raytracing to create shadows
         multicore=T,        # use multiple cores for raytracing
         width=5, height=5,
         scale=200,          # vertical exaggeration
         sunangle=215,       # angle of light source for creating shadows
         shadow_intensity = 0.4,
-        windowsize = c(1500,1000),
+        windowsize = c(1600,1100),
         zoom = 0.6,         # default zoom
-        phi=30)             # default view angle
+        offsetedges = 0.5,
+        phi=40)             # default view angle
 
-render_snapshot(file='3d flow Green.png', vignette=T) # capture image of plot
+render_snapshot(file='plots/3d flow Green.png', vignette=T) # capture image of plot
 
 
 ### Plot multiple stations moving downriver
